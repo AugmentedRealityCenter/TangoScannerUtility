@@ -103,7 +103,7 @@ public class SaveMeshOnline : MonoBehaviour {
 			"\nproperty uchar red" +                 
 			"\nproperty uchar green" +
 			"\nproperty uchar blue" +
-			"\nelement face " + m.triangles.Length +
+			"\nelement face " + m.triangles.Length/3 +
 			"\nproperty list uchar int vertex_index" +  
 			"\nend_header\n" );
 
@@ -119,7 +119,7 @@ public class SaveMeshOnline : MonoBehaviour {
 			Vector3 v = t.TransformPoint (vv);
 			numVertices++;
 			sb.Append (string.Format ("{0} {1} {2} {3} {4} {5}\n", v.x, v.y, -v.z, 
-				m.colors[i].r, m.colors[i].g, m.colors[i].b));
+				(int)(255.9*m.colors[i].r), (int)(255.9*m.colors[i].g), (int)(255.9*m.colors[i].b)));
 		}
 		/*sb.Append ("\n");
 		foreach (Vector3 nn in m.normals) {
@@ -192,6 +192,7 @@ public class SaveMeshOnline : MonoBehaviour {
 		AndroidHelper.ShowAndroidToastMessage ("in");
 		string meshName = gameObject.name;
 		string fileName = Application.persistentDataPath+"/"+gameObject.name+".ply"; // you can also use: "/storage/sdcard1/" +gameObject.name+".obj"
+        AndroidHelper.ShowAndroidToastMessage(fileName);
 
 		Start();
 

@@ -82,7 +82,7 @@ public class MeshBuilderWithPhysicsGUIController : MonoBehaviour
 
 		if (GUI.Button (new Rect (Screen.width - 160, 220, 140, 80), "<size=30>save</size>")) {
 			AndroidHelper.ShowAndroidToastMessage ("register");
-			m_dynamicMesh.SendMessage("DoExport", true);
+			m_dynamicMesh.SendMessage("DoExportPLY", true);
 		}
     }
 }

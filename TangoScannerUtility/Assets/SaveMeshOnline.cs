@@ -78,7 +78,31 @@ public class SaveMeshOnline : MonoBehaviour {
 		return sb.ToString ();
 	}
 
-	public static string MeshToStringPLY(MeshFilter mf, Transform t) 
+    public class Tuple<T1, T2, T3, T4>
+    {
+        public T1 First { get; private set; }
+        public T2 Second { get; private set; }
+        public T3 Third { get; private set; }
+        public T4 Fourth { get; private set; }
+        internal Tuple(T1 first, T2 second, T3 third, T4 fourth)
+        {
+            First = first;
+            Second = second;
+            Third = third;
+            Fourth = fourth;
+        }
+    }
+
+    public static class Tuple
+    {
+        public static Tuple<T1, T2, T3, T4> New<T1, T2, T3, T4>(T1 first, T2 second, T3 third, T4 fourth)
+        {
+            var tuple = new Tuple<T1, T2, T3, T4>(first, second, third, fourth);
+            return tuple;
+        }
+    }
+
+    public static Tuple<string, string, int, int> MeshToStringPLY(MeshFilter mf, Transform t) 
 	{    
 		Vector3 s = t.localScale;
 		Vector3 p = t.localPosition;
@@ -88,24 +112,13 @@ public class SaveMeshOnline : MonoBehaviour {
 		int numVertices = 0;
 		Mesh m = mf.sharedMesh;
 		if (!m) {
-			return "####Error####";
+			return new Tuple<string, string, int, int>("####Error####","",0,0);
 		}
 		Material[] mats = mf.GetComponent<Renderer> ().sharedMaterials;
 
-		StringBuilder sb = new StringBuilder ();
+		StringBuilder sb_verts = new StringBuilder ();
+        StringBuilder sb_tris = new StringBuilder ();
 
-		sb.Append ( "ply" +
-			"\nformat ascii 1.0" +
-			"\nelement vertex " + m.vertexCount +
-			"\nproperty float x" +
-			"\nproperty float y" +
-			"\nproperty float z" +
-			"\nproperty uchar red" +                 
-			"\nproperty uchar green" +
-			"\nproperty uchar blue" +
-			"\nelement face " + m.triangles.Length/3 +
-			"\nproperty list uchar int vertex_index" +  
-			"\nend_header\n" );
 
 		Vector3[] normals = m.normals; 
 		for (int i=0; i<normals.Length; i++) // remove this if your exported mesh have faces on wrong side
@@ -118,7 +131,7 @@ public class SaveMeshOnline : MonoBehaviour {
 			Vector3 vv  = m.vertices[i];
 			Vector3 v = t.TransformPoint (vv);
 			numVertices++;
-			sb.Append (string.Format ("{0} {1} {2} {3} {4} {5}\n", v.x, v.y, -v.z, 
+			sb_verts.Append (string.Format ("{0} {1} {2} {3} {4} {5}\n", v.x, v.y, -v.z, 
 				(int)(255.9*m.colors[i].r), (int)(255.9*m.colors[i].g), (int)(255.9*m.colors[i].b)));
 		}
 		/*sb.Append ("\n");
@@ -137,8 +150,8 @@ public class SaveMeshOnline : MonoBehaviour {
 
 			int[] triangles = m.GetTriangles (material);
 			for (int i=0; i<triangles.Length; i+=3) {
-				sb.Append (string.Format ("3 {0} {1} {2}\n", 
-					triangles [i], triangles [i + 1], triangles [i + 2]));
+				sb_tris.Append (string.Format ("3 {0} {1} {2}\n", 
+					triangles [i] + StartIndex, triangles [i + 1] + StartIndex, triangles [i + 2] + StartIndex));
 			}
 		}
 
@@ -149,7 +162,7 @@ public class SaveMeshOnline : MonoBehaviour {
 		m.triangles = m.triangles.Reverse ().ToArray (); //
 
 		StartIndex += numVertices;
-		return sb.ToString ();
+		return new Tuple<string, string, int, int>(sb_verts.ToString(), sb_tris.ToString(), m.vertexCount, m.triangles.Length/3);
 	}
 	
 	public void DoExport(bool makeSubmeshes)
@@ -207,9 +220,24 @@ public class SaveMeshOnline : MonoBehaviour {
 		{
 			//meshString.Append("g ").Append(t.name).Append("\n");
 		}
-		meshString.Append(processTransformPLY(t, makeSubmeshes));
+		var ret = processTransformPLY(t, makeSubmeshes);
 
-		WriteToFile(meshString.ToString(),fileName);
+        meshString.Append("ply" +
+            "\nformat ascii 1.0" +
+            "\nelement vertex " + ret.Third +
+            "\nproperty float x" +
+            "\nproperty float y" +
+            "\nproperty float z" +
+            "\nproperty uchar red" +
+            "\nproperty uchar green" +
+            "\nproperty uchar blue" +
+            "\nelement face " + ret.Fourth +
+            "\nproperty list uchar int vertex_index" +
+            "\nend_header\n");
+        meshString.Append(ret.First);
+        meshString.Append(ret.Second);
+
+        WriteToFile(meshString.ToString(),fileName);
 
 		t.position = originalPosition;
 
@@ -244,23 +272,33 @@ public class SaveMeshOnline : MonoBehaviour {
 		return meshString.ToString();
 	}
 
-	static string processTransformPLY(Transform t, bool makeSubmeshes)
+	static Tuple<string, string, int, int> processTransformPLY(Transform t, bool makeSubmeshes)
 	{
-		StringBuilder meshString = new StringBuilder();
+        StringBuilder vertString = new StringBuilder();
+        StringBuilder triString = new StringBuilder();
+        int vertCount = 0;
+        int triCount = 0;
 
-		MeshFilter mf = t.GetComponent<MeshFilter>();
+        MeshFilter mf = t.GetComponent<MeshFilter>();
 		if (mf)
 		{
-			meshString.Append(MeshToStringPLY(mf, t));
+            var ret = MeshToStringPLY(mf, t);
+            vertString.Append(ret.First);
+            triString.Append(ret.Second);
+            vertCount += ret.Third;
+            triCount += ret.Fourth;
 		}
 
-		//TODO: This is not going to work if there are child meshes
 		for(int i = 0; i < t.childCount; i++)
 		{
-			meshString.Append(processTransformPLY(t.GetChild(i), makeSubmeshes));
-		}
+            var ret = processTransformPLY(t.GetChild(i), makeSubmeshes);
+            vertString.Append(ret.First);
+            triString.Append(ret.Second);
+            vertCount += ret.Third;
+            triCount += ret.Fourth;
+        }
 
-		return meshString.ToString();
+        return new Tuple<string, string, int, int>(vertString.ToString(), triString.ToString(), vertCount, triCount);
 	}
 	
 	static void WriteToFile(string s, string filename)

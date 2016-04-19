@@ -123,7 +123,7 @@ public class SaveMeshOnline : MonoBehaviour {
         }
     }
 
-    public static Tuple<int, int> MeshToStringPLY(MeshFilter mf, Transform t, StreamWriter vertSw, StreamWriter faceSw) 
+    public static Tuple<int, int> MeshToStringPLY(ref MeshFilter mf, Transform t, StreamWriter vertSw, StreamWriter faceSw) 
 	{    
 		Vector3 s = t.localScale;
 		Vector3 p = t.localPosition;
@@ -164,7 +164,7 @@ public class SaveMeshOnline : MonoBehaviour {
 
         int numTris = 0;
 		for (int material=0; material < m.subMeshCount; material ++) {
-			int[] triangles = m.GetTriangles (material);
+			int[] triangles = m.GetTriangles (material); //TODO try to do with direct array access
 			for (int i=0; i<triangles.Length; i+=3) {
                 //Don't add degerenate triangles
                 if (triangles[i + 2] != triangles[i + 1] &&
@@ -333,7 +333,7 @@ public class SaveMeshOnline : MonoBehaviour {
         MeshFilter mf = t.GetComponent<MeshFilter>();
 		if (mf)
 		{
-            var ret = MeshToStringPLY(mf, t, vertSw, faceSw);
+            var ret = MeshToStringPLY(ref mf, t, vertSw, faceSw);
             vertCount += ret.First;
             triCount += ret.Second;
 		}

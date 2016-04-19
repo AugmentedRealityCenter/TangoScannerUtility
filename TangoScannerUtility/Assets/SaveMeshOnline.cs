@@ -272,7 +272,7 @@ public class SaveMeshOnline : MonoBehaviour {
 		return meshString.ToString();
 	}
 
-	static Tuple<string, string, int, int> processTransformPLY(Transform t, bool makeSubmeshes)
+	public Tuple<string, string, int, int> processTransformPLY(Transform t, bool makeSubmeshes)
 	{
         StringBuilder vertString = new StringBuilder();
         StringBuilder triString = new StringBuilder();
@@ -296,6 +296,10 @@ public class SaveMeshOnline : MonoBehaviour {
             triString.Append(ret.Second);
             vertCount += ret.Third;
             triCount += ret.Fourth;
+			string name = Application.persistentDataPath+"/"+gameObject.name+"TEST.ply";
+			if(i % 10 == 0){
+				WriteToFile(vertString.ToString() + "\n" + triString.ToString(),name);
+			}
         }
 
         return new Tuple<string, string, int, int>(vertString.ToString(), triString.ToString(), vertCount, triCount);

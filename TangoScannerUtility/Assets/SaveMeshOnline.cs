@@ -78,7 +78,7 @@ public class SaveMeshOnline : MonoBehaviour {
 		return sb.ToString ();
 	}
 
-    public class Tuple<T1, T2, T3, T4>
+    /*public class Tuple<T1, T2, T3, T4>
     {
         public T1 First { get; private set; }
         public T2 Second { get; private set; }
@@ -100,69 +100,95 @@ public class SaveMeshOnline : MonoBehaviour {
             var tuple = new Tuple<T1, T2, T3, T4>(first, second, third, fourth);
             return tuple;
         }
+    }*/
+    public class Tuple<T1, T2>
+    {
+        public T1 First { get; private set; }
+        public T2 Second { get; private set; }
+
+        internal Tuple(T1 first, T2 second)
+        {
+            First = first;
+            Second = second;
+
+        }
     }
 
-    public static Tuple<string, string, int, int> MeshToStringPLY(MeshFilter mf, Transform t) 
+    public static class Tuple
+    {
+        public static Tuple<T1, T2> New<T1, T2>(T1 first, T2 second)
+        {
+            var tuple = new Tuple<T1, T2>(first, second);
+            return tuple;
+        }
+    }
+
+    public static Tuple<int, int> MeshToStringPLY(MeshFilter mf, Transform t, StreamWriter vertSw, StreamWriter faceSw) 
 	{    
 		Vector3 s = t.localScale;
 		Vector3 p = t.localPosition;
 		Quaternion r = t.localRotation;
 
-
 		int numVertices = 0;
 		Mesh m = mf.sharedMesh;
 		if (!m) {
-			return new Tuple<string, string, int, int>("####Error####","",0,0);
+			return new Tuple<int, int>(0,0);
 		}
-		Material[] mats = mf.GetComponent<Renderer> ().sharedMaterials;
+		//Material[] mats = mf.GetComponent<Renderer> ().sharedMaterials;
 
-		StringBuilder sb_verts = new StringBuilder ();
-        StringBuilder sb_tris = new StringBuilder ();
-
-
-		Vector3[] normals = m.normals; 
+		/*Vector3[] normals = m.normals; 
 		for (int i=0; i<normals.Length; i++) // remove this if your exported mesh have faces on wrong side
 			normals [i] = -normals [i];
 		m.normals = normals;
+        */
 
-		m.triangles = m.triangles.Reverse ().ToArray (); //
+		//m.triangles = m.triangles.Reverse ().ToArray (); //
 
 		for (int i=0; i<m.vertexCount; i++) {
 			Vector3 vv  = m.vertices[i];
 			Vector3 v = t.TransformPoint (vv);
+            //Mesh has a lot of empty points, don't save them ... and they
+            // always are at the end of the list?
+            if (Mathf.Abs(v.x) < 0.00001 &&
+                Mathf.Abs(v.y) < 0.00001 &&
+                Mathf.Abs(v.z) < 0.00001 &&
+                m.colors[i].r < 0.0001 &&
+                m.colors[i].g < 0.0001 &&
+                m.colors[i].b < 0.0001)
+                break;
+
 			numVertices++;
-			sb_verts.Append (string.Format ("{0} {1} {2} {3} {4} {5}\n", v.x, v.y, -v.z, 
+			vertSw.Write (string.Format ("{0} {1} {2} {3} {4} {5}\n", v.x, v.y, -v.z, 
 				(int)(255.9*m.colors[i].r), (int)(255.9*m.colors[i].g), (int)(255.9*m.colors[i].b)));
 		}
-		/*sb.Append ("\n");
-		foreach (Vector3 nn in m.normals) {
-			Vector3 v = r * nn;
-			sb.Append (string.Format ("vn {0} {1} {2}\n", -v.x, -v.y, v.z));
-		}
-		sb.Append ("\n");
-		foreach (Vector3 v in m.uv) {
-			sb.Append (string.Format ("vt {0} {1}\n", v.x, v.y));
-		}*/
-		for (int material=0; material < m.subMeshCount; material ++) {
-			//sb.Append ("\n");
-			//sb.Append ("usemtl ").Append (mats [material].name).Append ("\n");
-			//sb.Append ("usemap ").Append (mats [material].name).Append ("\n");
 
+        int numTris = 0;
+		for (int material=0; material < m.subMeshCount; material ++) {
 			int[] triangles = m.GetTriangles (material);
 			for (int i=0; i<triangles.Length; i+=3) {
-				sb_tris.Append (string.Format ("3 {0} {1} {2}\n", 
-					triangles [i] + StartIndex, triangles [i + 1] + StartIndex, triangles [i + 2] + StartIndex));
+                //Don't add degerenate triangles
+                if (triangles[i + 2] != triangles[i + 1] &&
+                    triangles[i + 1] != triangles[i] &&
+                    triangles[i + 2] != triangles[i])
+                {
+                    numTris++;
+                    faceSw.Write(string.Format("3 {0} {1} {2}\n",
+                        triangles[i + 2] + StartIndex, triangles[i + 1] + StartIndex, triangles[i + 0] + StartIndex));
+                }
 			}
 		}
 
-		for (int i=0; i<normals.Length; i++) // remove this if your exported mesh have faces on wrong side
-			normals [i] = -normals [i];
-		m.normals = normals;
+        vertSw.Flush();
+        faceSw.Flush();
 
-		m.triangles = m.triangles.Reverse ().ToArray (); //
+		/*for (int i=0; i<normals.Length; i++) // remove this if your exported mesh have faces on wrong side
+			normals [i] = -normals [i];
+		m.normals = normals;*/
+
+		//m.triangles = m.triangles.Reverse ().ToArray (); //
 
 		StartIndex += numVertices;
-		return new Tuple<string, string, int, int>(sb_verts.ToString(), sb_tris.ToString(), m.vertexCount, m.triangles.Length/3);
+		return new Tuple<int, int>(numVertices, numTris);
 	}
 	
 	public void DoExport(bool makeSubmeshes)
@@ -204,12 +230,18 @@ public class SaveMeshOnline : MonoBehaviour {
 	{
 		AndroidHelper.ShowAndroidToastMessage ("in");
 		string meshName = gameObject.name;
-		string fileName = Application.persistentDataPath+"/"+gameObject.name+".ply"; // you can also use: "/storage/sdcard1/" +gameObject.name+".obj"
-        AndroidHelper.ShowAndroidToastMessage(fileName);
+		string mainFileName = Application.persistentDataPath+"/"+gameObject.name+".ply"; // you can also use: "/storage/sdcard1/" +gameObject.name+".obj"
+        string headerFileName = Application.persistentDataPath + "/" + gameObject.name + ".ply.header";
+        string vertexFileName = Application.persistentDataPath + "/" + gameObject.name + ".ply.verts";
+        string faceFileName = Application.persistentDataPath + "/" + gameObject.name + ".ply.faces";
+
+        StreamWriter headerSw = new StreamWriter(headerFileName);    
+        StreamWriter vertSw = new StreamWriter(vertexFileName);
+        StreamWriter faceSw = new StreamWriter(faceFileName);
+
+        AndroidHelper.ShowAndroidToastMessage(mainFileName);
 
 		Start();
-
-		StringBuilder meshString = new StringBuilder();
 
 		Transform t = transform;
 
@@ -220,29 +252,50 @@ public class SaveMeshOnline : MonoBehaviour {
 		{
 			//meshString.Append("g ").Append(t.name).Append("\n");
 		}
-		var ret = processTransformPLY(t, makeSubmeshes);
+		var ret = processTransformPLY(t, makeSubmeshes, vertSw, faceSw);
 
-        meshString.Append("ply" +
+        vertSw.Flush();
+        vertSw.Close();
+        faceSw.Flush();
+        faceSw.Close();
+
+        headerSw.Write("ply" +
             "\nformat ascii 1.0" +
-            "\nelement vertex " + ret.Third +
+            "\nelement vertex " + ret.First +
             "\nproperty float x" +
             "\nproperty float y" +
             "\nproperty float z" +
             "\nproperty uchar red" +
             "\nproperty uchar green" +
             "\nproperty uchar blue" +
-            "\nelement face " + ret.Fourth +
+            "\nelement face " + ret.Second +
             "\nproperty list uchar int vertex_index" +
             "\nend_header\n");
-        meshString.Append(ret.First);
-        meshString.Append(ret.Second);
+        headerSw.Flush();
+        headerSw.Close();
 
-        WriteToFile(meshString.ToString(),fileName);
+        const int chunkSize = 2 * 1024; // 2KB
+        var inputFiles = new[] { headerFileName, vertexFileName, faceFileName };
+        using (var output = File.Create(mainFileName))
+        {
+            foreach (var file in inputFiles)
+            {
+                using (var input = File.OpenRead(file))
+                {
+                    var buffer = new byte[chunkSize];
+                    int bytesRead;
+                    while ((bytesRead = input.Read(buffer, 0, buffer.Length)) > 0)
+                    {
+                        output.Write(buffer, 0, bytesRead);
+                    }
+                }
+            }
+        }
 
-		t.position = originalPosition;
+        t.position = originalPosition;
 
 		End();
-		Debug.Log("Exported Mesh: " + fileName);
+		Debug.Log("Exported Mesh: " + mainFileName);
 	}
 	
 	static string processTransform(Transform t, bool makeSubmeshes)
@@ -272,33 +325,27 @@ public class SaveMeshOnline : MonoBehaviour {
 		return meshString.ToString();
 	}
 
-	static Tuple<string, string, int, int> processTransformPLY(Transform t, bool makeSubmeshes)
+	static Tuple<int, int> processTransformPLY(Transform t, bool makeSubmeshes, StreamWriter vertSw, StreamWriter faceSw)
 	{
-        StringBuilder vertString = new StringBuilder();
-        StringBuilder triString = new StringBuilder();
         int vertCount = 0;
         int triCount = 0;
 
         MeshFilter mf = t.GetComponent<MeshFilter>();
 		if (mf)
 		{
-            var ret = MeshToStringPLY(mf, t);
-            vertString.Append(ret.First);
-            triString.Append(ret.Second);
-            vertCount += ret.Third;
-            triCount += ret.Fourth;
+            var ret = MeshToStringPLY(mf, t, vertSw, faceSw);
+            vertCount += ret.First;
+            triCount += ret.Second;
 		}
 
 		for(int i = 0; i < t.childCount; i++)
 		{
-            var ret = processTransformPLY(t.GetChild(i), makeSubmeshes);
-            vertString.Append(ret.First);
-            triString.Append(ret.Second);
-            vertCount += ret.Third;
-            triCount += ret.Fourth;
+            var ret = processTransformPLY(t.GetChild(i), makeSubmeshes, vertSw, faceSw);
+            vertCount += ret.First;
+            triCount += ret.Second;
         }
 
-        return new Tuple<string, string, int, int>(vertString.ToString(), triString.ToString(), vertCount, triCount);
+        return new Tuple<int, int>(vertCount, triCount);
 	}
 	
 	static void WriteToFile(string s, string filename)

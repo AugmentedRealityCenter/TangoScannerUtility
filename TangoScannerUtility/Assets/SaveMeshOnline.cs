@@ -1,4 +1,6 @@
-﻿using UnityEngine;
+﻿#define ENABLE_PROFILER
+
+using UnityEngine;
 using System.Collections;
 using System.IO;
 using System.Text;
@@ -134,17 +136,17 @@ public class SaveMeshOnline : MonoBehaviour {
 		if (!m) {
 			return new Tuple<int, int>(0,0);
 		}
-		//Material[] mats = mf.GetComponent<Renderer> ().sharedMaterials;
+        //Material[] mats = mf.GetComponent<Renderer> ().sharedMaterials;
 
-		/*Vector3[] normals = m.normals; 
+        /*Vector3[] normals = m.normals; 
 		for (int i=0; i<normals.Length; i++) // remove this if your exported mesh have faces on wrong side
 			normals [i] = -normals [i];
 		m.normals = normals;
         */
 
-		//m.triangles = m.triangles.Reverse ().ToArray (); //
+        //m.triangles = m.triangles.Reverse ().ToArray (); //
 
-		for (int i=0; i<m.vertexCount; i++) {
+        for (int i=0; i<m.vertexCount; i++) {
 			Vector3 vv  = m.vertices[i];
 			Vector3 v = t.TransformPoint (vv);
             //Mesh has a lot of empty points, don't save them ... and they
@@ -163,21 +165,18 @@ public class SaveMeshOnline : MonoBehaviour {
 		}
 
         int numTris = 0;
-		for (int material=0; material < m.subMeshCount; material ++) {
-			int[] triangles = m.GetTriangles (material); //TODO try to do with direct array access
-			for (int i=0; i<triangles.Length; i+=3) {
-                //Don't add degerenate triangles
-                if (triangles[i + 2] != triangles[i + 1] &&
-                    triangles[i + 1] != triangles[i] &&
-                    triangles[i + 2] != triangles[i])
-                {
-                    numTris++;
-                    faceSw.Write(string.Format("3 {0} {1} {2}\n",
-                        triangles[i + 2] + StartIndex, triangles[i + 1] + StartIndex, triangles[i + 0] + StartIndex));
-                }
-			}
+		for (int i=0; i<m.triangles.Length; i+=3) {
+            //Don't add degerenate triangles
+            if (m.triangles[i + 2] != m.triangles[i + 1] &&
+                m.triangles[i + 1] != m.triangles[i] &&
+                m.triangles[i + 2] != m.triangles[i])
+            {
+                numTris++;
+                faceSw.Write(string.Format("3 {0} {1} {2}\n",
+                    m.triangles[i + 2] + StartIndex, m.triangles[i + 1] + StartIndex, m.triangles[i + 0] + StartIndex));
+            }
 		}
-
+		
         vertSw.Flush();
         faceSw.Flush();
 
@@ -228,7 +227,8 @@ public class SaveMeshOnline : MonoBehaviour {
 
 	public void DoExportPLY(bool makeSubmeshes)
 	{
-		AndroidHelper.ShowAndroidToastMessage ("in");
+        Profiler.BeginSample("DoExportPLY");
+        AndroidHelper.ShowAndroidToastMessage ("in");
 		string meshName = gameObject.name;
 		string mainFileName = Application.persistentDataPath+"/"+gameObject.name+".ply"; // you can also use: "/storage/sdcard1/" +gameObject.name+".obj"
         string headerFileName = Application.persistentDataPath + "/" + gameObject.name + ".ply.header";
@@ -276,13 +276,13 @@ public class SaveMeshOnline : MonoBehaviour {
 
         const int chunkSize = 2 * 1024; // 2KB
         var inputFiles = new[] { headerFileName, vertexFileName, faceFileName };
+        var buffer = new byte[chunkSize];
         using (var output = File.Create(mainFileName))
         {
             foreach (var file in inputFiles)
             {
                 using (var input = File.OpenRead(file))
                 {
-                    var buffer = new byte[chunkSize];
                     int bytesRead;
                     while ((bytesRead = input.Read(buffer, 0, buffer.Length)) > 0)
                     {
@@ -296,6 +296,7 @@ public class SaveMeshOnline : MonoBehaviour {
 
 		End();
 		Debug.Log("Exported Mesh: " + mainFileName);
+        Profiler.EndSample();
 	}
 	
 	static string processTransform(Transform t, bool makeSubmeshes)

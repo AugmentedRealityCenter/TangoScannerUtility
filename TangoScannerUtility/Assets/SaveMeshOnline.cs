@@ -136,55 +136,49 @@ public class SaveMeshOnline : MonoBehaviour {
 		if (!m) {
 			return new Tuple<int, int>(0,0);
 		}
-        //Material[] mats = mf.GetComponent<Renderer> ().sharedMaterials;
 
-        /*Vector3[] normals = m.normals; 
-		for (int i=0; i<normals.Length; i++) // remove this if your exported mesh have faces on wrong side
-			normals [i] = -normals [i];
-		m.normals = normals;
-        */
-
-        //m.triangles = m.triangles.Reverse ().ToArray (); //
-
-        for (int i=0; i<m.vertexCount; i++) {
-			Vector3 vv  = m.vertices[i];
+        Profiler.BeginSample("PLYVerts");
+        Vector3[] vertices = m.vertices;
+        int vertexCount = m.vertexCount;
+        Color[] colors = m.colors;
+        for (int i=0; i<vertexCount; i++) {
+			Vector3 vv  = vertices[i];
 			Vector3 v = t.TransformPoint (vv);
             //Mesh has a lot of empty points, don't save them ... and they
             // always are at the end of the list?
             if (Mathf.Abs(v.x) < 0.00001 &&
                 Mathf.Abs(v.y) < 0.00001 &&
                 Mathf.Abs(v.z) < 0.00001 &&
-                m.colors[i].r < 0.0001 &&
-                m.colors[i].g < 0.0001 &&
-                m.colors[i].b < 0.0001)
+                colors[i].r < 0.0001 &&
+                colors[i].g < 0.0001 &&
+                colors[i].b < 0.0001)
                 break;
 
 			numVertices++;
 			vertSw.Write (string.Format ("{0} {1} {2} {3} {4} {5}\n", v.x, v.y, -v.z, 
-				(int)(255.9*m.colors[i].r), (int)(255.9*m.colors[i].g), (int)(255.9*m.colors[i].b)));
+				(int)(255.9*colors[i].r), (int)(255.9*colors[i].g), (int)(255.9*colors[i].b)));
 		}
+        Profiler.EndSample();
 
+        Profiler.BeginSample("PLYTris");
         int numTris = 0;
-		for (int i=0; i<m.triangles.Length; i+=3) {
+        int[] triangles = m.triangles;
+        int trianglesLength = triangles.Length;
+		for (int i=0; i < trianglesLength; i+=3) {
             //Don't add degerenate triangles
-            if (m.triangles[i + 2] != m.triangles[i + 1] &&
-                m.triangles[i + 1] != m.triangles[i] &&
-                m.triangles[i + 2] != m.triangles[i])
+            if (triangles[i + 2] != triangles[i + 1] &&
+                triangles[i + 1] != triangles[i] &&
+                triangles[i + 2] != triangles[i])
             {
                 numTris++;
                 faceSw.Write(string.Format("3 {0} {1} {2}\n",
-                    m.triangles[i + 2] + StartIndex, m.triangles[i + 1] + StartIndex, m.triangles[i + 0] + StartIndex));
+                    triangles[i + 2] + StartIndex, triangles[i + 1] + StartIndex, triangles[i + 0] + StartIndex));
             }
 		}
-		
+        Profiler.EndSample();
+
         vertSw.Flush();
         faceSw.Flush();
-
-		/*for (int i=0; i<normals.Length; i++) // remove this if your exported mesh have faces on wrong side
-			normals [i] = -normals [i];
-		m.normals = normals;*/
-
-		//m.triangles = m.triangles.Reverse ().ToArray (); //
 
 		StartIndex += numVertices;
 		return new Tuple<int, int>(numVertices, numTris);
@@ -192,7 +186,6 @@ public class SaveMeshOnline : MonoBehaviour {
 	
 	public void DoExport(bool makeSubmeshes)
 	{
-		AndroidHelper.ShowAndroidToastMessage ("in");
 		string meshName = gameObject.name;
 		string fileName = Application.persistentDataPath+"/"+gameObject.name+".obj"; // you can also use: "/storage/sdcard1/" +gameObject.name+".obj"
 		
@@ -228,7 +221,7 @@ public class SaveMeshOnline : MonoBehaviour {
 	public void DoExportPLY(bool makeSubmeshes)
 	{
         Profiler.BeginSample("DoExportPLY");
-        AndroidHelper.ShowAndroidToastMessage ("in");
+
 		string meshName = gameObject.name;
 		string mainFileName = Application.persistentDataPath+"/"+gameObject.name+".ply"; // you can also use: "/storage/sdcard1/" +gameObject.name+".obj"
         string headerFileName = Application.persistentDataPath + "/" + gameObject.name + ".ply.header";
@@ -238,8 +231,6 @@ public class SaveMeshOnline : MonoBehaviour {
         StreamWriter headerSw = new StreamWriter(headerFileName);    
         StreamWriter vertSw = new StreamWriter(vertexFileName);
         StreamWriter faceSw = new StreamWriter(faceFileName);
-
-        AndroidHelper.ShowAndroidToastMessage(mainFileName);
 
 		Start();
 

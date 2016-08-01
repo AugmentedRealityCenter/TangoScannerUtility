@@ -1,3 +1,8 @@
+Augmented Reality Center Customized 3D Scanning App for Tango
+=============================================================
+
+This repo contains code that is mostly just the Tango UnitySDK Examples. But we added the ability to save 3D meshes from the scanner example.
+
 Project Tango UnitySDK Examples
 ===========================================
 Copyright (C) 2015 Google Inc.
